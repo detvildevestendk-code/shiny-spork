@@ -34,9 +34,14 @@ class TradingEngine:
         last_loss_at: datetime | None = None,
         recent_news: list[str] | None = None,
     ) -> dict[str, Any]:
-        positions = await self.exchange.fetch_positions()
-        balance = await self.exchange.fetch_balance()
-        account_equity = self._account_equity(balance)
+        paper_mode = self.settings.paper_trading_enabled or not self.settings.live_trading_enabled
+        if paper_mode:
+            positions = []
+            account_equity = float(self.settings.paper_trading_equity)
+        else:
+            positions = await self.exchange.fetch_positions()
+            balance = await self.exchange.fetch_balance()
+            account_equity = self._account_equity(balance)
 
         for decision in (
             self.safety_controller.evaluate(market, positions),
@@ -57,6 +62,17 @@ class TradingEngine:
             return self._blocked(signal, ai_decision)
 
         order = self._build_order(signal, account_equity)
+        if paper_mode:
+            return {
+                "status": "paper_submitted",
+                "signal": signal.model_dump(),
+                "order": order.model_dump(),
+                "ai_confidence": ai_decision.ai_confidence,
+                "exchange_response": None,
+                "live_trading_enabled": False,
+                "submitted_at": datetime.now(UTC).isoformat(),
+            }
+
         exchange_response = await self.exchange.create_order(order)
         return {
             "status": "submitted",
@@ -68,6 +84,8 @@ class TradingEngine:
         }
 
     async def close_position(self, symbol: str, side: PositionSide, amount: float | None = None) -> dict[str, Any]:
+        if not self.settings.live_trading_enabled:
+            return {"status": "paper_closed", "symbol": symbol, "side": side.value, "amount": amount}
         return await self.exchange.close_position(symbol, side.value, amount)
 
     def _build_order(self, signal: StrategySignal, account_equity: float) -> OrderRequest:

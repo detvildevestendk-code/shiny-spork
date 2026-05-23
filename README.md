@@ -67,6 +67,7 @@ Copy `.env.example` and configure:
 - `DATABASE_URL`, `REDIS_URL`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `AI_MIN_CONFIDENCE`
 - `EXCHANGE_NAME`, `BYBIT_API_KEY`, `BYBIT_API_SECRET`, `BINANCE_API_KEY`, `BINANCE_API_SECRET`
+- `LIVE_TRADING_ENABLED`, `PAPER_TRADING_ENABLED`, `PAPER_TRADING_EQUITY`
 - `EXCHANGE_SANDBOX`, `HEDGE_MODE_ENABLED`
 - Risk limits such as `MAX_LEVERAGE`, `MAX_DAILY_LOSS_PCT`, `MAX_OPEN_TRADES`
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
@@ -103,3 +104,5 @@ curl -X POST "http://localhost:8000/api/v1/trading/signals/process" \
 ## Documentation
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the folder structure, component responsibilities, database schema, and production hardening backlog.
+
+See [docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) for a full 24/7 VPS deployment guide with Docker, hosted PostgreSQL/Redis, domain/SSL, monitoring, safe updates, and paper-trading-first operations.

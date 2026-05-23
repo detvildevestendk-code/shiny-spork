@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     bybit_api_secret: str | None = None
     binance_api_key: str | None = None
     binance_api_secret: str | None = None
+    live_trading_enabled: bool = False
+    paper_trading_enabled: bool = True
+    paper_trading_equity: PositiveFloat = 10_000
     exchange_sandbox: bool = True
     hedge_mode_enabled: bool = True
 
