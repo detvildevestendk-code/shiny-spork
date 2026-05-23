@@ -14,6 +14,7 @@ Every `CHANGE_ME_*` value must be replaced. Do not deploy with placeholder value
 - [ ] `APP_ENV=production`
 - [ ] `APP_NAME` is the display name you want.
 - [ ] `LOG_LEVEL=INFO` for normal production use.
+- [ ] `API_DOCS_ENABLED=false` in production unless docs exposure has been explicitly reviewed.
 - [ ] `TRADING_API_KEY` is set to a long random secret.
   - Generate one with: `openssl rand -hex 32`
   - Clients must send it as: `X-API-Key: <value>`

@@ -82,6 +82,7 @@ chmod 600 .env
 if grep -n "CHANGE_ME" .env; then echo "Fix placeholders"; exit 1; fi
 ```
 
+- [ ] `API_DOCS_ENABLED=false` in production.
 - [ ] `TRADING_API_KEY` is a long random value.
 - [ ] `POSTGRES_PASSWORD` is a long random value.
 - [ ] `REDIS_PASSWORD` is a long random value.
@@ -320,6 +321,7 @@ Do not deploy if any item is true:
 - [ ] `EXCHANGE_SANDBOX=false`.
 - [ ] `TRADING_API_KEY` is empty.
 - [ ] API is public without authentication.
+- [ ] API docs/OpenAPI are publicly exposed without an explicit review.
 - [ ] `CORS_ALLOWED_ORIGINS=*`.
 - [ ] PostgreSQL is exposed to the public internet.
 - [ ] Redis is exposed to the public internet.

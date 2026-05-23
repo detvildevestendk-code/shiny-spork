@@ -1,8 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from app.api.deps import require_api_key
 
 from app.strategies.registry import build_default_registry
 
-router = APIRouter(prefix="/strategies", tags=["strategies"])
+router = APIRouter(prefix="/strategies", tags=["strategies"], dependencies=[Depends(require_api_key)])
 
 
 @router.get("")

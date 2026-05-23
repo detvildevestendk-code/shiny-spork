@@ -38,7 +38,7 @@ docker compose exec api alembic upgrade head
 
 Open:
 
-- API docs: <http://localhost:8000/docs>
+- API docs, if `API_DOCS_ENABLED=true`: <http://localhost:8000/docs>
 - Liveness check: <http://localhost:8000/api/v1/health/live>
 - Readiness check: <http://localhost:8000/api/v1/health/ready>
 - Dashboard: <http://localhost:5173>
@@ -65,7 +65,7 @@ npm run dev
 
 Copy `.env.example` and configure:
 
-- `TRADING_API_KEY`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_API_BASE_URL`
+- `API_DOCS_ENABLED`, `TRADING_API_KEY`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_API_BASE_URL`
 - `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `DATABASE_URL`, `REDIS_URL`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `AI_MIN_CONFIDENCE`
 - `EXCHANGE_NAME`, `BYBIT_API_KEY`, `BYBIT_API_SECRET`, `BINANCE_API_KEY`, `BINANCE_API_SECRET`

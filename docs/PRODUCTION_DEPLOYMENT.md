@@ -150,6 +150,7 @@ APP_NAME=AI Futures Bot
 API_HOST=0.0.0.0
 API_PORT=8000
 LOG_LEVEL=INFO
+API_DOCS_ENABLED=false
 TRADING_API_KEY=<generate-a-long-random-secret>
 CORS_ALLOWED_ORIGINS=https://bot.example.com
 FRONTEND_API_BASE_URL=https://api.bot.example.com
