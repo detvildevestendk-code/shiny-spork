@@ -109,4 +109,6 @@ curl -X POST "http://localhost:8000/api/v1/trading/signals/process" \
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the folder structure, component responsibilities, database schema, and production hardening backlog.
 
+See [docs/ENVIRONMENT_CHECKLIST.md](docs/ENVIRONMENT_CHECKLIST.md) for the exact `.env` values and safety checks to complete before deployment.
+
 See [docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) for a full 24/7 VPS deployment guide with Docker, hosted PostgreSQL/Redis, domain/SSL, monitoring, safe updates, and paper-trading-first operations.

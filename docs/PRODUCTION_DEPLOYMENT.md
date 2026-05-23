@@ -129,7 +129,7 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Important: `.env` must never be committed to GitHub.
+Important: `.env` must never be committed to GitHub. Complete the checklist in [ENVIRONMENT_CHECKLIST.md](ENVIRONMENT_CHECKLIST.md) before starting the bot online.
 
 ### Required application variables
 
