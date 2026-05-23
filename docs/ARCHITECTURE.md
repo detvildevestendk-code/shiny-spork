@@ -50,6 +50,7 @@ This repository is a production-oriented starter for an AI-assisted crypto futur
 │   ├── ARCHITECTURE.md
 │   ├── DATABASE_SCHEMA.sql
 │   ├── ENVIRONMENT_CHECKLIST.md
+│   ├── PRE_DEPLOYMENT_CHECKLIST.md
 │   └── PRODUCTION_DEPLOYMENT.md
 ├── frontend                  # React/Tailwind dashboard starter
 ├── docker-compose.yml
