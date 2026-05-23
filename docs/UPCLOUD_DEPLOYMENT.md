@@ -1,6 +1,6 @@
 # UpCloud Deployment Guide
 
-Deploy this project on one UpCloud Ubuntu server with Docker Compose, Nginx, Let's Encrypt SSL, PostgreSQL, and Redis running on the same server.
+Deploy this project on one UpCloud Ubuntu server with Docker Compose, Nginx, Let's Encrypt SSL, PostgreSQL, and Redis running on the same server. For deployment day, follow [UPCLOUD_FINAL_LAUNCH_CHECKLIST.md](UPCLOUD_FINAL_LAUNCH_CHECKLIST.md) in order.
 
 This guide keeps live trading disabled by default:
 

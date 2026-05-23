@@ -52,7 +52,8 @@ This repository is a production-oriented starter for an AI-assisted crypto futur
 │   ├── ENVIRONMENT_CHECKLIST.md
 │   ├── PRE_DEPLOYMENT_CHECKLIST.md
 │   ├── PRODUCTION_DEPLOYMENT.md
-│   └── UPCLOUD_DEPLOYMENT.md
+│   ├── UPCLOUD_DEPLOYMENT.md
+│   └── UPCLOUD_FINAL_LAUNCH_CHECKLIST.md
 ├── frontend                  # React/Tailwind dashboard starter
 ├── docker-compose.yml
 ├── .env.example
