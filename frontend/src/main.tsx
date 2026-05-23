@@ -2,7 +2,13 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+declare global {
+  interface Window {
+    __APP_CONFIG__?: { API_BASE_URL?: string };
+  }
+}
+
+const apiBaseUrl = window.__APP_CONFIG__?.API_BASE_URL ?? import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 function App() {
   const cards = [

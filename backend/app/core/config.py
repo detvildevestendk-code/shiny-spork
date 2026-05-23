@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     log_level: str = "INFO"
+    trading_api_key: str | None = None
+    cors_allowed_origins: str = "http://localhost:5173"
 
     database_url: str = "postgresql+asyncpg://bot:bot_password@postgres:5432/futures_bot"
     redis_url: str = "redis://redis:6379/0"
@@ -42,8 +44,25 @@ class Settings(BaseSettings):
     losing_streak_cooldown_minutes: PositiveInt = 45
     extreme_volatility_threshold_pct: PositiveFloat = 8.0
 
+    worker_strategy_scanning_enabled: bool = False
+    strategy_scan_interval_seconds: PositiveInt = 60
+    trading_symbols: str = "BTC/USDT:USDT"
+    enabled_strategies: str = "ema_crossover"
+
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
+
+    @property
+    def symbol_list(self) -> list[str]:
+        return [symbol.strip() for symbol in self.trading_symbols.split(",") if symbol.strip()]
+
+    @property
+    def enabled_strategy_names(self) -> list[str]:
+        return [name.strip() for name in self.enabled_strategies.split(",") if name.strip()]
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
 
 
 @lru_cache

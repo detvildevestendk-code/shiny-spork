@@ -26,7 +26,7 @@ Professional starter scaffold for a Python/FastAPI crypto futures trading bot wi
 
 ```bash
 cp .env.example .env
-# Fill exchange, OpenAI, and Telegram credentials in .env.
+# Set TRADING_API_KEY, POSTGRES_PASSWORD, REDIS_PASSWORD, and any optional exchange/OpenAI/Telegram keys in .env.
 docker compose up --build
 ```
 
@@ -39,7 +39,8 @@ docker compose exec api alembic upgrade head
 Open:
 
 - API docs: <http://localhost:8000/docs>
-- Health check: <http://localhost:8000/api/v1/health>
+- Liveness check: <http://localhost:8000/api/v1/health/live>
+- Readiness check: <http://localhost:8000/api/v1/health/ready>
 - Dashboard: <http://localhost:5173>
 
 ## Local backend development
@@ -64,12 +65,14 @@ npm run dev
 
 Copy `.env.example` and configure:
 
-- `DATABASE_URL`, `REDIS_URL`
+- `TRADING_API_KEY`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_API_BASE_URL`
+- `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `DATABASE_URL`, `REDIS_URL`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `AI_MIN_CONFIDENCE`
 - `EXCHANGE_NAME`, `BYBIT_API_KEY`, `BYBIT_API_SECRET`, `BINANCE_API_KEY`, `BINANCE_API_SECRET`
 - `LIVE_TRADING_ENABLED`, `PAPER_TRADING_ENABLED`, `PAPER_TRADING_EQUITY`
 - `EXCHANGE_SANDBOX`, `HEDGE_MODE_ENABLED`
 - Risk limits such as `MAX_LEVERAGE`, `MAX_DAILY_LOSS_PCT`, `MAX_OPEN_TRADES`
+- `WORKER_STRATEGY_SCANNING_ENABLED`, `TRADING_SYMBOLS`, `ENABLED_STRATEGIES`
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 
 ## Example signal processing request
@@ -77,6 +80,7 @@ Copy `.env.example` and configure:
 ```bash
 curl -X POST "http://localhost:8000/api/v1/trading/signals/process" \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $TRADING_API_KEY" \
   -d '{
     "signal": {
       "strategy_name": "ema_crossover",

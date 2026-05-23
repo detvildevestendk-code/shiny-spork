@@ -1,28 +1,18 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+from app.api.deps import require_api_key
+from app.db.session import get_session
+from app.trading.paper import PaperTradingStore
+
+router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(require_api_key)])
 
 
 @router.get("/summary")
-async def dashboard_summary() -> dict:
-    return {
-        "live_pnl": 0,
-        "open_positions": [],
-        "risk_exposure_pct": 0,
-        "ai_confidence_score": None,
-        "exchange_connection_status": "not_checked",
-        "strategy_toggles": {
-            "ema_crossover": True,
-            "rsi_divergence": True,
-            "volume_breakout": False,
-            "trend_following": False,
-            "mean_reversion": False,
-            "scalping_mode": False,
-        },
-        "telegram_alerts_enabled": False,
-    }
+async def dashboard_summary(session: AsyncSession = Depends(get_session)) -> dict:
+    return await PaperTradingStore(session).dashboard_summary()
 
 
 @router.get("/trades")
-async def trade_history() -> dict:
-    return {"items": [], "total": 0}
+async def trade_history(session: AsyncSession = Depends(get_session)) -> dict:
+    return await PaperTradingStore(session).trade_history()

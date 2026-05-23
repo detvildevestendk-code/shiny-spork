@@ -34,7 +34,7 @@ class TradingEngine:
         last_loss_at: datetime | None = None,
         recent_news: list[str] | None = None,
     ) -> dict[str, Any]:
-        paper_mode = self.settings.paper_trading_enabled or not self.settings.live_trading_enabled
+        paper_mode = self._paper_mode()
         if paper_mode:
             positions = []
             account_equity = float(self.settings.paper_trading_equity)
@@ -84,9 +84,12 @@ class TradingEngine:
         }
 
     async def close_position(self, symbol: str, side: PositionSide, amount: float | None = None) -> dict[str, Any]:
-        if not self.settings.live_trading_enabled:
+        if self._paper_mode():
             return {"status": "paper_closed", "symbol": symbol, "side": side.value, "amount": amount}
         return await self.exchange.close_position(symbol, side.value, amount)
+
+    def _paper_mode(self) -> bool:
+        return self.settings.paper_trading_enabled or not self.settings.live_trading_enabled
 
     def _build_order(self, signal: StrategySignal, account_equity: float) -> OrderRequest:
         if not signal.entry_price or not signal.stop_loss:

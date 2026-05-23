@@ -133,12 +133,26 @@ Important: `.env` must never be committed to GitHub.
 
 ### Required application variables
 
+For Docker-based PostgreSQL/Redis, set matching secrets:
+
+```env
+POSTGRES_DB=futures_bot
+POSTGRES_USER=bot
+POSTGRES_PASSWORD=<generate-a-long-random-password>
+REDIS_PASSWORD=<generate-a-long-random-password>
+REDIS_URL=redis://:<same-redis-password>@redis:6379/0
+```
+
+
 ```env
 APP_ENV=production
 APP_NAME=AI Futures Bot
 API_HOST=0.0.0.0
 API_PORT=8000
 LOG_LEVEL=INFO
+TRADING_API_KEY=<generate-a-long-random-secret>
+CORS_ALLOWED_ORIGINS=https://bot.example.com
+FRONTEND_API_BASE_URL=https://api.bot.example.com
 ```
 
 ### Safety-first trading defaults
@@ -373,6 +387,10 @@ dig bot.example.com
 ```
 
 ## 10. Reverse proxy and SSL
+
+The API is protected by the `TRADING_API_KEY` setting. Clients must send it in the `X-API-Key` header. Keep the API bound to localhost in Docker and expose it only through your reverse proxy.
+
+
 
 Use Nginx or Caddy in front of the API/frontend.
 
@@ -661,7 +679,7 @@ docker compose up -d
 
 ```bash
 docker compose ps
-curl https://api.bot.example.com/api/v1/health
+curl https://api.bot.example.com/api/v1/health/ready
 docker compose logs --tail=200 api
 ```
 

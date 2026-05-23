@@ -17,6 +17,11 @@ class AiTradeFilter:
     ) -> TradeDecision:
         if not self.settings.ai_filter_enabled:
             return TradeDecision(allowed=True, reason="AI filter disabled")
+        if not self.settings.openai_api_key:
+            live_mode = self.settings.live_trading_enabled and not self.settings.paper_trading_enabled
+            if live_mode:
+                return TradeDecision(allowed=False, reason="OpenAI API key is required for live trading")
+            return TradeDecision(allowed=True, reason="OpenAI API key not configured; paper-mode pass-through")
 
         result = await self.analyzer.analyze(
             AiAnalysisRequest(signal=signal, market=market, recent_news=recent_news or [])
