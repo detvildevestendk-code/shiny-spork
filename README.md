@@ -113,4 +113,6 @@ See [docs/ENVIRONMENT_CHECKLIST.md](docs/ENVIRONMENT_CHECKLIST.md) for the exact
 
 See [docs/PRE_DEPLOYMENT_CHECKLIST.md](docs/PRE_DEPLOYMENT_CHECKLIST.md) for the full go/no-go checklist before running the bot online.
 
+See [docs/UPCLOUD_DEPLOYMENT.md](docs/UPCLOUD_DEPLOYMENT.md) for an exact UpCloud Ubuntu deployment runbook using Docker Compose, Nginx, Let's Encrypt, same-server PostgreSQL, and Redis.
+
 See [docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) for a full 24/7 VPS deployment guide with Docker, hosted PostgreSQL/Redis, domain/SSL, monitoring, safe updates, and paper-trading-first operations.

@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-This guide explains how to run the AI-assisted futures trading bot online 24/7. The safest production posture is **paper trading first** and **live trading disabled by default**. Only enable live trading after testnet validation, monitoring, backups, and operational procedures are proven.
+This guide explains how to run the AI-assisted futures trading bot online 24/7. For an exact UpCloud single-server runbook, see [UPCLOUD_DEPLOYMENT.md](UPCLOUD_DEPLOYMENT.md). The safest production posture is **paper trading first** and **live trading disabled by default**. Only enable live trading after testnet validation, monitoring, backups, and operational procedures are proven.
 
 ## 1. Deployment overview
 
