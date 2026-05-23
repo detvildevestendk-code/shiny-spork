@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+sqlalchemy[asyncio]
+asyncpg
+psycopg[binary]
+alembic
+redis
+ccxt
+openai
+httpx
+python-dotenv
+pandas
+numpy
+ta
+python-telegram-bot
