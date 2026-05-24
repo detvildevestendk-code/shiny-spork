@@ -84,10 +84,11 @@ type EndpointKey = keyof DashboardState;
 
 const emptyState = <T,>(): EndpointState<T> => ({ data: null, loading: true, error: null });
 
-const apiBaseUrl = window.__APP_CONFIG__?.API_BASE_URL ?? import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const apiBaseUrl = window.__APP_CONFIG__?.API_BASE_URL ?? import.meta.env.VITE_API_BASE_URL ?? "http://81.27.108.159:8000";
 const tradingApiKey =
   window.__APP_CONFIG__?.TRADING_API_KEY ??
   window.__APP_CONFIG__?.API_KEY ??
+  import.meta.env.VITE_FRONTEND_TRADING_API_KEY ??
   import.meta.env.VITE_TRADING_API_KEY ??
   import.meta.env.VITE_API_KEY ??
   "";
@@ -98,6 +99,56 @@ const endpoints: Record<EndpointKey, string> = {
   trades: "/api/v1/trades",
   positions: "/api/v1/positions",
 };
+
+const demoBalance: Balance = {
+  equity: 10019.8,
+  available_balance: 8313.8,
+  used_margin: 1706,
+  realized_pnl: 13.8,
+  unrealized_pnl: 6.0,
+};
+
+const demoPositions: Position[] = [
+  {
+    id: "demo-btc-long",
+    symbol: "BTC/USDT:USDT",
+    side: "long",
+    amount: 0.025,
+    entry_price: 68000,
+    mark_price: 68240,
+    notional: 1706,
+    unrealized_pnl: 6,
+    leverage: 1,
+    source: "frontend_demo_fallback",
+  },
+];
+
+const demoTrades: Trade[] = [
+  {
+    id: "demo-trade-eth",
+    symbol: "ETH/USDT:USDT",
+    strategy_name: "ema_crossover",
+    side: "long",
+    status: "closed",
+    amount: 0.4,
+    entry_price: 3500,
+    exit_price: 3524,
+    realized_pnl: 9.6,
+    source: "frontend_demo_fallback",
+  },
+  {
+    id: "demo-trade-btc",
+    symbol: "BTC/USDT:USDT",
+    strategy_name: "volume_breakout",
+    side: "short",
+    status: "closed",
+    amount: 0.015,
+    entry_price: 68400,
+    exit_price: 68120,
+    realized_pnl: 4.2,
+    source: "frontend_demo_fallback",
+  },
+];
 
 function formatCurrency(value?: number | null) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(
@@ -188,10 +239,14 @@ function useDashboardData() {
 function App() {
   const { state, refreshing, reload } = useDashboardData();
   const summary = state.summary.data;
-  const balance = summary?.fake_balance;
-  const positions = state.positions.data?.items ?? summary?.open_positions ?? [];
-  const trades = state.trades.data?.items ?? summary?.trade_history ?? [];
+  const balance = summary?.fake_balance ?? demoBalance;
+  const apiPositions = state.positions.data?.items ?? summary?.open_positions ?? [];
+  const apiTrades = state.trades.data?.items ?? summary?.trade_history ?? [];
+  const positions = apiPositions.length > 0 ? apiPositions : demoPositions;
+  const trades = apiTrades.length > 0 ? apiTrades : demoTrades;
   const healthChecks = state.health.data?.checks ?? {};
+  const usingDemoPositions = apiPositions.length === 0;
+  const usingDemoTrades = apiTrades.length === 0;
   const liveTradingEnabled = Boolean(summary?.live_trading_enabled);
   const pageLoading = Object.values(state).every((endpoint) => endpoint.loading && !endpoint.data);
   const errors = Object.entries(state).filter(([, endpoint]) => endpoint.error);
@@ -247,6 +302,17 @@ function App() {
           </div>
         )}
 
+
+        {(usingDemoPositions || usingDemoTrades) && !pageLoading && (
+          <div className="mb-6 rounded-2xl border border-cyan-500/30 bg-cyan-950/40 p-4 text-cyan-100">
+            <p className="font-semibold">Demo fallback data is displayed</p>
+            <p className="mt-1 text-sm text-cyan-200">
+              The dashboard API loaded, but positions or trades were empty. Demo paper data is shown until the backend has
+              simulated trades.
+            </p>
+          </div>
+        )}
+
         {pageLoading ? (
           <LoadingGrid />
         ) : (
@@ -288,7 +354,7 @@ function App() {
               <Panel title="Runtime config" loading={state.summary.loading} error={state.summary.error}>
                 <div className="space-y-3 text-sm text-slate-300">
                   <ConfigRow label="API base URL" value={apiBaseUrl} />
-                  <ConfigRow label="TRADING_API_KEY" value={tradingApiKey ? "configured" : "missing"} danger={!tradingApiKey} />
+                  <ConfigRow label="FRONTEND_TRADING_API_KEY" value={tradingApiKey ? "configured" : "missing"} danger={!tradingApiKey} />
                   <ConfigRow label="Dashboard summary" value={endpoints.summary} />
                   <ConfigRow label="Health" value={endpoints.health} />
                   <ConfigRow label="Trades" value={endpoints.trades} />
