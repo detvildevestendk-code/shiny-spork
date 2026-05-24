@@ -14,8 +14,10 @@ from app.exchanges.factory import get_exchange_client
 from app.notifications.telegram import TelegramNotifier
 from app.strategies.registry import build_default_registry
 from app.trading.engine import TradingEngine
+from app.trading.enums import SignalAction
 from app.trading.paper import PaperTradingStore
 from app.trading.risk import RiskManager
+from app.trading.signal_decisions import record_signal_decision
 from app.trading.safety import SafetyController
 from app.trading.schemas import MarketSnapshot
 
@@ -68,16 +70,47 @@ async def _scan_once(notifier: TelegramNotifier | None = None) -> None:
                     signal.reason,
                 )
                 market = _market_snapshot(symbol, strategy.timeframe, candles)
-                result = await engine.process_signal(signal, market)
-                if result.get("status") == "blocked":
-                    await notifier.warning(
-                        "Worker trade blocked",
-                        result.get("reason", "Trade was blocked"),
-                        {"symbol": symbol, "strategy": strategy_name, "action": signal.action.value},
-                    )
                 async with AsyncSessionLocal() as session:
+                    if signal.action == SignalAction.HOLD or signal.confidence < 0.62:
+                        decision = "hold" if signal.action == SignalAction.HOLD else "blocked"
+                        reason = signal.reason or "No strong signal"
+                        logger.info(
+                            "HOLD: %s %s %s confidence=%.2f reason=%s",
+                            symbol,
+                            strategy_name,
+                            signal.action.value,
+                            signal.confidence,
+                            reason,
+                        )
+                        await record_signal_decision(
+                            session,
+                            signal,
+                            market,
+                            decision=decision,
+                            reason=reason,
+                            metadata={"threshold": 0.62, "scanner": "worker"},
+                        )
+                        continue
+
+                    result = await engine.process_signal(signal, market)
+                    status = result.get("status", "unknown")
+                    reason = result.get("reason") or signal.reason or status
+                    if status == "blocked":
+                        await notifier.warning(
+                            "Worker trade blocked",
+                            reason,
+                            {"symbol": symbol, "strategy": strategy_name, "action": signal.action.value},
+                        )
                     await PaperTradingStore(session, notifier).record_submission(result, market)
-                logger.info("Processed paper strategy signal", extra={"symbol": symbol, "strategy": strategy_name, "status": result.get("status")})
+                    await record_signal_decision(
+                        session,
+                        signal,
+                        market,
+                        decision="opened" if status == "paper_submitted" else status,
+                        reason=reason,
+                        metadata={"threshold": 0.62, "scanner": "worker", "engine_result": result},
+                    )
+                    logger.info("Processed paper strategy signal", extra={"symbol": symbol, "strategy": strategy_name, "status": status})
     finally:
         await exchange.close()
 

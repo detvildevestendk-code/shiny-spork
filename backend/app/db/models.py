@@ -85,3 +85,16 @@ class BotSetting(Base, TimestampMixin):
 
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class SignalDecision(Base, TimestampMixin, UUIDPrimaryKeyMixin):
+    __tablename__ = "signal_decisions"
+
+    symbol: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    strategy_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    confidence: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    decision: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    market_price: Mapped[Decimal | None] = mapped_column(Numeric(28, 12))
+    metadata_json: Mapped[dict] = mapped_column(JSONB, default=dict)

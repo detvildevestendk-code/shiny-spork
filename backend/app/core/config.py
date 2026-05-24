@@ -46,10 +46,10 @@ class Settings(BaseSettings):
     losing_streak_cooldown_minutes: PositiveInt = 45
     extreme_volatility_threshold_pct: PositiveFloat = 8.0
 
-    worker_strategy_scanning_enabled: bool = False
-    strategy_scan_interval_seconds: PositiveInt = 60
-    trading_symbols: str = "BTC/USDT:USDT"
-    enabled_strategies: str = "ema_crossover"
+    worker_strategy_scanning_enabled: bool = True
+    strategy_scan_interval_seconds: PositiveInt = 10
+    trading_symbols: str = "BTC/USDT:USDT,ETH/USDT:USDT,SOL/USDT:USDT"
+    enabled_strategies: str = "ema_crossover,rsi_momentum,volume_breakout,trend_following"
 
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
