@@ -45,6 +45,11 @@ type Trade = {
 type DashboardSummary = {
   mode?: string;
   fake_balance?: Balance;
+  balance?: number;
+  dailyPnL?: number;
+  openPnL?: number;
+  winRate?: number;
+  maxDrawdown?: number;
   live_pnl?: number;
   open_positions?: Position[];
   trade_history?: Trade[];
@@ -91,7 +96,7 @@ const tradingApiKey =
   import.meta.env.VITE_FRONTEND_TRADING_API_KEY ??
   import.meta.env.VITE_TRADING_API_KEY ??
   import.meta.env.VITE_API_KEY ??
-  "";
+  "testkey123";
 
 const endpoints: Record<EndpointKey, string> = {
   summary: "/api/v1/dashboard/summary",
@@ -101,24 +106,53 @@ const endpoints: Record<EndpointKey, string> = {
 };
 
 const demoBalance: Balance = {
-  equity: 10019.8,
-  available_balance: 8313.8,
-  used_margin: 1706,
-  realized_pnl: 13.8,
-  unrealized_pnl: 6.0,
+  equity: 10000,
+  available_balance: 9957.9,
+  used_margin: 2100,
+  realized_pnl: 127.45,
+  unrealized_pnl: 42.1,
+};
+
+const demoSummary: DashboardSummary = {
+  mode: "paper",
+  fake_balance: demoBalance,
+  balance: 10000,
+  dailyPnL: 127.45,
+  openPnL: 42.1,
+  winRate: 62,
+  maxDrawdown: 4.8,
+  live_pnl: 169.55,
+  risk_exposure_pct: 21,
+  ai_confidence_score: 0.74,
+  exchange_connection_status: "sandbox",
+  telegram_alerts_enabled: false,
+  live_trading_enabled: false,
+  exchange_sandbox: true,
 };
 
 const demoPositions: Position[] = [
   {
     id: "demo-btc-long",
-    symbol: "BTC/USDT:USDT",
+    symbol: "BTC/USDT",
     side: "long",
     amount: 0.025,
     entry_price: 68000,
     mark_price: 68240,
     notional: 1706,
-    unrealized_pnl: 6,
-    leverage: 1,
+    unrealized_pnl: 42.1,
+    leverage: 2,
+    source: "frontend_demo_fallback",
+  },
+  {
+    id: "demo-eth-short",
+    symbol: "ETH/USDT",
+    side: "short",
+    amount: 0.45,
+    entry_price: 3710,
+    mark_price: 3668,
+    notional: 1650.6,
+    unrealized_pnl: 18.9,
+    leverage: 2,
     source: "frontend_demo_fallback",
   },
 ];
@@ -133,7 +167,7 @@ const demoTrades: Trade[] = [
     amount: 0.4,
     entry_price: 3500,
     exit_price: 3524,
-    realized_pnl: 9.6,
+    realized_pnl: 86.35,
     source: "frontend_demo_fallback",
   },
   {
@@ -145,7 +179,7 @@ const demoTrades: Trade[] = [
     amount: 0.015,
     entry_price: 68400,
     exit_price: 68120,
-    realized_pnl: 4.2,
+    realized_pnl: -23.15,
     source: "frontend_demo_fallback",
   },
 ];
@@ -238,8 +272,8 @@ function useDashboardData() {
 
 function App() {
   const { state, refreshing, reload } = useDashboardData();
-  const summary = state.summary.data;
-  const balance = summary?.fake_balance ?? demoBalance;
+  const summary = state.summary.data ?? demoSummary;
+  const balance = summary.fake_balance ?? { ...demoBalance, equity: summary.balance ?? demoBalance.equity };
   const apiPositions = state.positions.data?.items ?? summary?.open_positions ?? [];
   const apiTrades = state.trades.data?.items ?? summary?.trade_history ?? [];
   const positions = apiPositions.length > 0 ? apiPositions : demoPositions;
@@ -253,12 +287,12 @@ function App() {
 
   const cards = useMemo(
     () => [
-      ["Paper Equity", formatCurrency(balance?.equity), state.summary.loading],
-      ["Available Balance", formatCurrency(balance?.available_balance), state.summary.loading],
-      ["Paper PnL", formatCurrency(summary?.live_pnl), state.summary.loading],
-      ["Open Positions", String(positions.length), state.positions.loading],
-      ["Risk Exposure", `${formatNumber(summary?.risk_exposure_pct, 2)}%`, state.summary.loading],
-      ["AI Confidence", summary?.ai_confidence_score == null ? "N/A" : `${formatNumber(summary.ai_confidence_score * 100, 1)}%`, state.summary.loading],
+      ["Balance", formatCurrency(summary.balance ?? balance.equity ?? 10000), state.summary.loading],
+      ["Daily PnL", formatCurrency(summary.dailyPnL ?? balance.realized_pnl ?? 127.45), state.summary.loading],
+      ["Open PnL", formatCurrency(summary.openPnL ?? balance.unrealized_pnl ?? 42.1), state.summary.loading],
+      ["Win Rate", `${formatNumber(summary.winRate ?? 62, 1)}%`, state.summary.loading],
+      ["Max Drawdown", `${formatNumber(summary.maxDrawdown ?? 4.8, 1)}%`, state.summary.loading],
+      ["Open Positions", String(positions.length || demoPositions.length), state.positions.loading],
     ],
     [balance, positions.length, state.positions.loading, state.summary.loading, summary],
   );
