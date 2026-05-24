@@ -44,6 +44,7 @@ services:
       context: ./frontend
     environment:
       VITE_API_BASE_URL: ${FRONTEND_API_BASE_URL:-http://localhost:8000}
+      TRADING_API_KEY: ${TRADING_API_KEY:?set TRADING_API_KEY in .env}
     ports:
       - "127.0.0.1:5173:8080"
     depends_on:

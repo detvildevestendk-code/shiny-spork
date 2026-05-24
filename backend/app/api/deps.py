@@ -7,6 +7,7 @@ from app.ai.client import OpenAiMarketAnalyzer
 from app.ai.trade_filter import AiTradeFilter
 from app.core.config import Settings, get_settings
 from app.exchanges.factory import get_exchange_client
+from app.notifications.telegram import TelegramNotifier
 from app.trading.engine import TradingEngine
 from app.trading.risk import RiskManager
 from app.trading.safety import SafetyController
@@ -37,3 +38,7 @@ def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
         )
     if not x_api_key or not compare_digest(x_api_key, settings.trading_api_key):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+
+
+def get_telegram_notifier() -> TelegramNotifier:
+    return TelegramNotifier(get_settings())
