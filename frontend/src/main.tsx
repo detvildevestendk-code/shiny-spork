@@ -76,7 +76,7 @@ type DashboardViewModel = {
 
 const API_BASE_URL = "http://81.27.108.159:8000";
 const API_KEY = "testkey123";
-const DASHBOARD_SUMMARY_URL = `${API_BASE_URL}/api/v1/dashboard/summary`;
+const DASHBOARD_SUMMARY_URL = "http://81.27.108.159:8000/api/v1/dashboard/summary";
 
 const demoPositions: Position[] = [
   {
@@ -219,7 +219,7 @@ function App() {
       setError(null);
 
       try {
-        const response = await fetch(DASHBOARD_SUMMARY_URL, {
+        const response = await fetch("http://81.27.108.159:8000/api/v1/dashboard/summary", {
           method: "GET",
           headers: {
             "x-api-key": API_KEY,
@@ -229,7 +229,7 @@ function App() {
 
         if (!response.ok) {
           const body = await response.text();
-          throw new Error(`GET ${DASHBOARD_SUMMARY_URL} failed with ${response.status}: ${body || response.statusText}`);
+          throw new Error(`GET http://81.27.108.159:8000/api/v1/dashboard/summary failed with ${response.status}: ${body || response.statusText}`);
         }
 
         const json = (await response.json()) as DashboardSummary;
