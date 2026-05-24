@@ -16,11 +16,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
     notifier = TelegramNotifier(settings)
-    await notifier.send(f"{settings.app_name} startup: env={settings.app_env}, live_trading={settings.live_trading_enabled}, sandbox={settings.exchange_sandbox}")
+    await notifier.startup(settings.app_name, {"env": settings.app_env, "live_trading": settings.live_trading_enabled, "sandbox": settings.exchange_sandbox})
     try:
         yield
     finally:
-        await notifier.send(f"{settings.app_name} shutdown")
+        await notifier.shutdown(settings.app_name)
 
 
 def create_app() -> FastAPI:
@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        await TelegramNotifier(settings).send(f"Unhandled API error on {request.method} {request.url.path}: {type(exc).__name__}: {exc}")
+        await TelegramNotifier(settings).error("Unhandled API error", exc, {"method": request.method, "path": request.url.path})
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
     return app

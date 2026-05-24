@@ -51,7 +51,13 @@ class PaperTradingStore:
 
         await self.session.commit()
         if closed and self.notifier:
-            await self.notifier.send(f"Paper simulation closed {closed} trade(s) via stop-loss/take-profit")
+            await self.notifier.simulated_trade(
+                "Paper SL/TP close",
+                "multiple" if closed > 1 else open_trades[0].symbol,
+                "mixed" if closed > 1 else open_trades[0].side,
+                pnl=None,
+                reason=f"Paper simulation closed {closed} trade(s) via stop-loss/take-profit",
+            )
         return {"updated": updated, "closed": closed}
 
 
@@ -103,9 +109,13 @@ class PaperTradingStore:
         result["paper_trade_id"] = trade.id
 
         if self.notifier:
-            await self.notifier.send(
-                f"Paper trade simulated: {trade.symbol} {trade.side} amount={float(trade.amount or 0):.6f} "
-                f"entry={float(trade.entry_price or 0):.4f}"
+            await self.notifier.simulated_trade(
+                "Paper trade opened",
+                trade.symbol,
+                trade.side,
+                amount=float(trade.amount or 0),
+                price=float(trade.entry_price or 0),
+                reason="Fake execution recorded for paper trading",
             )
         return result
 
@@ -146,7 +156,14 @@ class PaperTradingStore:
 
         await self.session.commit()
         if closed and self.notifier:
-            await self.notifier.send(f"Paper positions closed: {symbol} {side} count={closed} pnl={float(realized):.4f}")
+            await self.notifier.simulated_trade(
+                "Paper position closed",
+                symbol,
+                side,
+                amount=float(amount) if amount is not None else None,
+                pnl=float(realized),
+                reason=f"Manual paper close count={closed}",
+            )
         return {"paper_positions_closed": closed, "paper_realized_pnl": float(realized)}
 
     async def balance(self) -> dict[str, Any]:

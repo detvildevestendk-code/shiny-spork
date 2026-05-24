@@ -60,8 +60,21 @@ async def _scan_once(notifier: TelegramNotifier | None = None) -> None:
                 raw = await exchange.fetch_ohlcv(symbol, strategy.timeframe, limit=250)
                 candles = _candles_frame(raw)
                 signal = strategy.generate_signal(symbol, candles)
+                await notifier.strategy_signal(
+                    signal.strategy_name,
+                    signal.symbol,
+                    signal.action.value,
+                    signal.confidence,
+                    signal.reason,
+                )
                 market = _market_snapshot(symbol, strategy.timeframe, candles)
                 result = await engine.process_signal(signal, market)
+                if result.get("status") == "blocked":
+                    await notifier.warning(
+                        "Worker trade blocked",
+                        result.get("reason", "Trade was blocked"),
+                        {"symbol": symbol, "strategy": strategy_name, "action": signal.action.value},
+                    )
                 async with AsyncSessionLocal() as session:
                     await PaperTradingStore(session, notifier).record_submission(result, market)
                 logger.info("Processed paper strategy signal", extra={"symbol": symbol, "strategy": strategy_name, "status": result.get("status")})
@@ -75,7 +88,7 @@ async def main() -> None:
     redis = get_redis()
     notifier = TelegramNotifier(settings)
     logger.info("Worker started")
-    await notifier.send(f"{settings.app_name} worker startup: scanning={settings.worker_strategy_scanning_enabled}")
+    await notifier.startup(f"{settings.app_name} worker", {"scanning": settings.worker_strategy_scanning_enabled})
 
     try:
         while True:
@@ -85,12 +98,19 @@ async def main() -> None:
                     await _scan_once(notifier)
             except Exception as exc:
                 logger.exception("Worker loop failed")
-                await notifier.send(f"Worker error: {type(exc).__name__}: {exc}")
+                await notifier.worker_crash(exc, {"component": "worker_loop", "scanning": settings.worker_strategy_scanning_enabled})
             await asyncio.sleep(settings.strategy_scan_interval_seconds)
     finally:
-        await notifier.send(f"{settings.app_name} worker shutdown")
+        await notifier.shutdown(f"{settings.app_name} worker")
         await redis.aclose()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as exc:
+        logger.exception("Worker crashed")
+        try:
+            asyncio.run(TelegramNotifier(get_settings()).worker_crash(exc, {"component": "worker_process", "fatal": True}))
+        finally:
+            raise
