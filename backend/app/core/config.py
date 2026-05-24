@@ -81,6 +81,12 @@ class Settings(BaseSettings):
             errors.append("FRONTEND_API_BASE_URL should use HTTPS in production")
         if self.show_api_docs:
             errors.append("API docs must remain disabled in production unless explicitly reviewed")
+        if self.live_trading_enabled:
+            errors.append("LIVE_TRADING_ENABLED must remain false for this paper-trading deployment")
+        if not self.paper_trading_enabled:
+            errors.append("PAPER_TRADING_ENABLED must remain true for this paper-trading deployment")
+        if not self.exchange_sandbox:
+            errors.append("EXCHANGE_SANDBOX must remain true for Bybit/Binance sandbox-only mode")
 
         if errors:
             raise RuntimeError("Invalid production configuration: " + "; ".join(errors))

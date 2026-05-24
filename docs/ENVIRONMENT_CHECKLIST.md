@@ -92,7 +92,7 @@ These must stay exactly like this for first deployment:
 - [ ] `EXCHANGE_SANDBOX=true`
 - [ ] `PAPER_TRADING_EQUITY` is set to your simulated account size.
 
-Do not enable live trading in the first online deployment.
+Do not enable live trading in the first online deployment. Production startup rejects live trading and non-sandbox exchange mode for this paper-trading deployment.
 
 ## 5. Exchange credentials
 

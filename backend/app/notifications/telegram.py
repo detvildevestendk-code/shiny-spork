@@ -16,9 +16,12 @@ class TelegramNotifier:
             logger.info("Telegram not configured; skipped alert: %s", message)
             return
         url = f"https://api.telegram.org/bot{self.settings.telegram_bot_token}/sendMessage"
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(
-                url,
-                json={"chat_id": self.settings.telegram_chat_id, "text": message},
-            )
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    url,
+                    json={"chat_id": self.settings.telegram_chat_id, "text": message},
+                )
+                response.raise_for_status()
+        except Exception as exc:
+            logger.warning("Telegram alert failed: %s", exc)

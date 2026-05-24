@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_safety_controller, get_trading_engine, require_api_key
+from app.api.deps import get_safety_controller, get_telegram_notifier, get_trading_engine, require_api_key
 from app.db.session import get_session
+from app.notifications.telegram import TelegramNotifier
 from app.trading.engine import TradingEngine
 from app.trading.enums import PositionSide
 from app.trading.paper import PaperTradingStore
@@ -18,9 +19,10 @@ async def process_signal(
     market: MarketSnapshot,
     engine: TradingEngine = Depends(get_trading_engine),
     session: AsyncSession = Depends(get_session),
+    notifier: TelegramNotifier = Depends(get_telegram_notifier),
 ) -> dict:
     result = await engine.process_signal(signal, market)
-    return await PaperTradingStore(session).record_submission(result, market)
+    return await PaperTradingStore(session, notifier).record_submission(result, market)
 
 
 @router.post("/positions/{symbol}/close")
@@ -31,10 +33,11 @@ async def close_position(
     exit_price: float | None = None,
     engine: TradingEngine = Depends(get_trading_engine),
     session: AsyncSession = Depends(get_session),
+    notifier: TelegramNotifier = Depends(get_telegram_notifier),
 ) -> dict:
     result = await engine.close_position(symbol, side, amount)
     if result.get("status") == "paper_closed":
-        result.update(await PaperTradingStore(session).close_positions(symbol, side.value, amount, exit_price))
+        result.update(await PaperTradingStore(session, notifier).close_positions(symbol, side.value, amount, exit_price))
     return result
 
 
