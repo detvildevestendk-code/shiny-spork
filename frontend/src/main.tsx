@@ -27,7 +27,7 @@ type DashboardSummary = {
 const DASHBOARD_SUMMARY_URL = "http://81.27.108.159:8000/api/v1/dashboard/summary";
 const API_KEY = "testkey123";
 
-const demoSummary: Required<Pick<DashboardSummary, "live_pnl" | "risk_exposure_pct" | "ai_confidence_score" | "exchange_connection_status">> & {
+const demoSummary: Required<Pick<DashboardSummary, "live_pnl" | "risk_exposure_pct" | "ai_confidence_score" | "exchange_connection_status" | "telegram_alerts_enabled">> & {
   open_positions: Position[];
   mode: string;
   live_trading_enabled: boolean;
@@ -37,6 +37,7 @@ const demoSummary: Required<Pick<DashboardSummary, "live_pnl" | "risk_exposure_p
   risk_exposure_pct: 4.8,
   ai_confidence_score: 0.62,
   exchange_connection_status: "sandbox",
+  telegram_alerts_enabled: false,
   mode: "paper",
   live_trading_enabled: false,
   exchange_sandbox: true,
@@ -72,7 +73,7 @@ function formatPercent(value: number | undefined | null, multiplier = 1) {
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value * multiplier)}%`;
 }
 
-function withFallback(summary: DashboardSummary | null): Required<Pick<DashboardSummary, "live_pnl" | "risk_exposure_pct" | "ai_confidence_score" | "exchange_connection_status">> & {
+function withFallback(summary: DashboardSummary | null): Required<Pick<DashboardSummary, "live_pnl" | "risk_exposure_pct" | "ai_confidence_score" | "exchange_connection_status" | "telegram_alerts_enabled">> & {
   open_positions: Position[];
   mode: string;
   live_trading_enabled: boolean;
@@ -83,6 +84,7 @@ function withFallback(summary: DashboardSummary | null): Required<Pick<Dashboard
     risk_exposure_pct: summary?.risk_exposure_pct ?? demoSummary.risk_exposure_pct,
     ai_confidence_score: summary?.ai_confidence_score ?? demoSummary.ai_confidence_score,
     exchange_connection_status: summary?.exchange_connection_status || demoSummary.exchange_connection_status,
+    telegram_alerts_enabled: Boolean(summary?.telegram_alerts_enabled ?? demoSummary.telegram_alerts_enabled),
     open_positions: summary?.open_positions?.length ? summary.open_positions : demoSummary.open_positions,
     mode: summary?.mode ?? demoSummary.mode,
     live_trading_enabled: Boolean(summary?.live_trading_enabled),
@@ -138,6 +140,7 @@ function Dashboard() {
     ["Risk Exposure", formatPercent(data.risk_exposure_pct)],
     ["AI Confidence", formatPercent(data.ai_confidence_score, 100)],
     ["Exchange", data.exchange_connection_status],
+    ["Telegram Alerts", data.telegram_alerts_enabled ? "enabled" : "disabled"],
   ];
 
   return (
@@ -166,7 +169,7 @@ function Dashboard() {
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
           {cards.map(([label, value]) => (
             <MetricCard key={label} label={label} value={loading ? "Loading..." : value} />
           ))}
@@ -180,6 +183,7 @@ function Dashboard() {
             <StatusPill label="Mode" value={data.mode} ok={data.mode === "paper"} />
             <StatusPill label="Live Trading" value={data.live_trading_enabled ? "enabled" : "disabled"} ok={!data.live_trading_enabled} />
             <StatusPill label="Sandbox" value={data.exchange_sandbox ? "enabled" : "disabled"} ok={data.exchange_sandbox} />
+            <StatusPill label="Telegram Alerts" value={data.telegram_alerts_enabled ? "enabled" : "disabled"} ok={data.telegram_alerts_enabled} />
           </Panel>
         </div>
 
