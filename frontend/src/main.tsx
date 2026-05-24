@@ -18,50 +18,11 @@ type DashboardSummary = {
   risk_exposure_pct?: number;
   ai_confidence_score?: number | null;
   exchange_connection_status?: string;
-  mode?: string;
-  live_trading_enabled?: boolean;
-  exchange_sandbox?: boolean;
-  [key: string]: unknown;
+  telegram_alerts_enabled?: boolean;
 };
 
 const DASHBOARD_SUMMARY_URL = "http://81.27.108.159:8000/api/v1/dashboard/summary";
 const API_KEY = "testkey123";
-
-const demoSummary: Required<Pick<DashboardSummary, "live_pnl" | "risk_exposure_pct" | "ai_confidence_score" | "exchange_connection_status" | "telegram_alerts_enabled">> & {
-  open_positions: Position[];
-  mode: string;
-  live_trading_enabled: boolean;
-  exchange_sandbox: boolean;
-} = {
-  live_pnl: 127.45,
-  risk_exposure_pct: 4.8,
-  ai_confidence_score: 0.62,
-  exchange_connection_status: "sandbox",
-  telegram_alerts_enabled: false,
-  mode: "paper",
-  live_trading_enabled: false,
-  exchange_sandbox: true,
-  open_positions: [
-    {
-      id: "demo-btc-long",
-      symbol: "BTC/USDT",
-      side: "long",
-      amount: 0.025,
-      entry_price: 68000,
-      mark_price: 68240,
-      unrealized_pnl: 42.1,
-    },
-    {
-      id: "demo-eth-short",
-      symbol: "ETH/USDT",
-      side: "short",
-      amount: 0.45,
-      entry_price: 3710,
-      mark_price: 3668,
-      unrealized_pnl: 18.9,
-    },
-  ],
-};
 
 function formatCurrency(value: number | undefined | null) {
   if (value == null || Number.isNaN(value)) return "-";
@@ -73,23 +34,8 @@ function formatPercent(value: number | undefined | null, multiplier = 1) {
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value * multiplier)}%`;
 }
 
-function withFallback(summary: DashboardSummary | null): Required<Pick<DashboardSummary, "live_pnl" | "risk_exposure_pct" | "ai_confidence_score" | "exchange_connection_status" | "telegram_alerts_enabled">> & {
-  open_positions: Position[];
-  mode: string;
-  live_trading_enabled: boolean;
-  exchange_sandbox: boolean;
-} {
-  return {
-    live_pnl: summary?.live_pnl ?? demoSummary.live_pnl,
-    risk_exposure_pct: summary?.risk_exposure_pct ?? demoSummary.risk_exposure_pct,
-    ai_confidence_score: summary?.ai_confidence_score ?? demoSummary.ai_confidence_score,
-    exchange_connection_status: summary?.exchange_connection_status || demoSummary.exchange_connection_status,
-    telegram_alerts_enabled: Boolean(summary?.telegram_alerts_enabled ?? demoSummary.telegram_alerts_enabled),
-    open_positions: summary?.open_positions?.length ? summary.open_positions : demoSummary.open_positions,
-    mode: summary?.mode ?? demoSummary.mode,
-    live_trading_enabled: Boolean(summary?.live_trading_enabled),
-    exchange_sandbox: summary?.exchange_sandbox !== false,
-  };
+function valueOrDash(value: string | undefined | null) {
+  return value && value.trim() ? value : "-";
 }
 
 function Dashboard() {
@@ -98,7 +44,7 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function loadDashboardSummary() {
       console.log("Fetching dashboard summary...");
@@ -107,7 +53,11 @@ function Dashboard() {
 
       try {
         const response = await fetch("http://81.27.108.159:8000/api/v1/dashboard/summary", {
-          headers: { "x-api-key": "testkey123" },
+          method: "GET",
+          headers: {
+            "x-api-key": "testkey123",
+          },
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -117,30 +67,28 @@ function Dashboard() {
 
         const data = (await response.json()) as DashboardSummary;
         console.log("Dashboard API response:", data);
-        if (!cancelled) setSummary(data);
+        setSummary(data);
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("Dashboard API fetch failed:", err);
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unknown dashboard API error");
+        setError(err instanceof Error ? err.message : "Unknown dashboard API error");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
 
     void loadDashboardSummary();
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, []);
 
-  const data = withFallback(summary);
-  const usingFallback = !summary || summary.live_pnl == null || !summary.open_positions?.length;
+  const openPositions = summary?.open_positions ?? [];
   const cards = [
-    ["Live PnL", formatCurrency(data.live_pnl)],
-    ["Open Positions", String(data.open_positions.length)],
-    ["Risk Exposure", formatPercent(data.risk_exposure_pct)],
-    ["AI Confidence", formatPercent(data.ai_confidence_score, 100)],
-    ["Exchange", data.exchange_connection_status],
-    ["Telegram Alerts", data.telegram_alerts_enabled ? "enabled" : "disabled"],
+    ["Live PnL", formatCurrency(summary?.live_pnl)],
+    ["Open Positions", loading ? "Loading..." : String(openPositions.length)],
+    ["Risk Exposure", formatPercent(summary?.risk_exposure_pct)],
+    ["AI Confidence", formatPercent(summary?.ai_confidence_score, 100)],
+    ["Exchange", valueOrDash(summary?.exchange_connection_status)],
+    ["Telegram Alerts", summary?.telegram_alerts_enabled == null ? "-" : summary.telegram_alerts_enabled ? "enabled" : "disabled"],
   ];
 
   return (
@@ -150,7 +98,7 @@ function Dashboard() {
           <p className="text-sm uppercase tracking-[0.3em] text-cyan-300">AI Futures Bot</p>
           <h1 className="mt-3 text-4xl font-semibold">Live paper trading dashboard</h1>
           <p className="mt-3 max-w-3xl text-slate-400">
-            Fetches <code>{DASHBOARD_SUMMARY_URL}</code> on mount with <code>x-api-key: testkey123</code>.
+            Fetching live dashboard summary from <code>{DASHBOARD_SUMMARY_URL}</code>.
           </p>
         </div>
 
@@ -158,14 +106,6 @@ function Dashboard() {
           <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-950/60 p-4 text-rose-100">
             <p className="font-semibold">Dashboard API error</p>
             <p className="mt-1 text-sm text-rose-200">{error}</p>
-            <p className="mt-2 text-sm text-rose-200">The dashboard is showing demo paper values until the API request succeeds.</p>
-          </div>
-        )}
-
-        {usingFallback && !loading && (
-          <div className="mb-6 rounded-2xl border border-cyan-500/30 bg-cyan-950/40 p-4 text-cyan-100">
-            <p className="font-semibold">Demo paper trading values are displayed</p>
-            <p className="mt-1 text-sm text-cyan-200">Backend values were empty or unavailable, so demo values are shown instead of blank cards.</p>
           </div>
         )}
 
@@ -177,19 +117,16 @@ function Dashboard() {
 
         <div className="mt-8 grid gap-4 xl:grid-cols-3">
           <Panel title="Open positions" className="xl:col-span-2">
-            <PositionsTable positions={data.open_positions} />
+            {loading ? <p className="text-sm text-slate-400">Loading positions...</p> : <PositionsTable positions={openPositions} />}
           </Panel>
-          <Panel title="Runtime status">
-            <StatusPill label="Mode" value={data.mode} ok={data.mode === "paper"} />
-            <StatusPill label="Live Trading" value={data.live_trading_enabled ? "enabled" : "disabled"} ok={!data.live_trading_enabled} />
-            <StatusPill label="Sandbox" value={data.exchange_sandbox ? "enabled" : "disabled"} ok={data.exchange_sandbox} />
-            <StatusPill label="Telegram Alerts" value={data.telegram_alerts_enabled ? "enabled" : "disabled"} ok={data.telegram_alerts_enabled} />
+          <Panel title="Raw dashboard summary">
+            {loading ? (
+              <p className="text-sm text-slate-400">Loading summary...</p>
+            ) : (
+              <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-sm text-slate-300">{JSON.stringify(summary, null, 2)}</pre>
+            )}
           </Panel>
         </div>
-
-        <Panel title="Raw dashboard summary" className="mt-8">
-          <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-sm text-slate-300">{JSON.stringify(summary ?? data, null, 2)}</pre>
-        </Panel>
       </section>
     </main>
   );
@@ -208,12 +145,14 @@ function Panel({ title, children, className = "" }: { title: string; children: R
   return (
     <section className={`rounded-2xl border border-slate-800 bg-slate-900/70 p-5 ${className}`}>
       <h2 className="text-xl font-semibold">{title}</h2>
-      <div className="mt-4 space-y-3">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
 
 function PositionsTable({ positions }: { positions: Position[] }) {
+  if (!positions.length) return <p className="text-sm text-slate-400">No open positions returned by API.</p>;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
@@ -229,7 +168,7 @@ function PositionsTable({ positions }: { positions: Position[] }) {
         </thead>
         <tbody>
           {positions.map((position, index) => (
-            <tr key={position.id ?? `${position.symbol}-${index}`} className="border-t border-slate-800">
+            <tr key={position.id ?? `${position.symbol ?? "position"}-${index}`} className="border-t border-slate-800">
               <td className="py-3 font-medium">{position.symbol ?? "-"}</td>
               <td className={position.side === "long" ? "text-emerald-300" : "text-rose-300"}>{position.side ?? "-"}</td>
               <td>{position.amount ?? "-"}</td>
@@ -240,17 +179,6 @@ function PositionsTable({ positions }: { positions: Position[] }) {
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function StatusPill({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3">
-      <span className="text-sm text-slate-400">{label}</span>
-      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${ok ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`}>
-        {value}
-      </span>
     </div>
   );
 }
