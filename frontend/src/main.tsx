@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 declare global {
   interface Window {
-    __APP_CONFIG__?: { API_BASE_URL?: string; API_KEY?: string };
+    __APP_CONFIG__?: { API_BASE_URL?: string; TRADING_API_KEY?: string; API_KEY?: string };
   }
 }
 
@@ -67,15 +67,37 @@ type Collection<T> = {
   total: number;
 };
 
-type DashboardData = {
-  summary: DashboardSummary;
-  health: Health;
-  trades: Collection<Trade>;
-  positions: Collection<Position>;
+type EndpointState<T> = {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
 };
 
+type DashboardState = {
+  summary: EndpointState<DashboardSummary>;
+  health: EndpointState<Health>;
+  trades: EndpointState<Collection<Trade>>;
+  positions: EndpointState<Collection<Position>>;
+};
+
+type EndpointKey = keyof DashboardState;
+
+const emptyState = <T,>(): EndpointState<T> => ({ data: null, loading: true, error: null });
+
 const apiBaseUrl = window.__APP_CONFIG__?.API_BASE_URL ?? import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-const apiKey = window.__APP_CONFIG__?.API_KEY ?? import.meta.env.VITE_API_KEY ?? "";
+const tradingApiKey =
+  window.__APP_CONFIG__?.TRADING_API_KEY ??
+  window.__APP_CONFIG__?.API_KEY ??
+  import.meta.env.VITE_TRADING_API_KEY ??
+  import.meta.env.VITE_API_KEY ??
+  "";
+
+const endpoints: Record<EndpointKey, string> = {
+  summary: "/api/v1/dashboard/summary",
+  health: "/api/v1/health",
+  trades: "/api/v1/trades",
+  positions: "/api/v1/positions",
+};
 
 function formatCurrency(value?: number | null) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(
@@ -87,68 +109,103 @@ function formatNumber(value?: number | null, digits = 4) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(value ?? 0);
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    headers: apiKey ? { "x-api-key": apiKey } : {},
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`${path} failed with ${response.status}: ${body || response.statusText}`);
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function fetchJson<T>(path: string, retries = 2): Promise<T> {
+  if (!tradingApiKey) {
+    throw new Error("TRADING_API_KEY is missing from frontend runtime config");
   }
-  return response.json() as Promise<T>;
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch(`${apiBaseUrl}${path}`, {
+        headers: { "x-api-key": tradingApiKey },
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`${path} failed with ${response.status}: ${body || response.statusText}`);
+      }
+      return response.json() as Promise<T>;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error("Unknown API request error");
+      if (attempt < retries) {
+        await sleep(400 * (attempt + 1));
+      }
+    }
+  }
+  throw lastError ?? new Error(`${path} failed`);
+}
+
+async function loadEndpoint<T>(path: string): Promise<EndpointState<T>> {
+  try {
+    return { data: await fetchJson<T>(path), loading: false, error: null };
+  } catch (err) {
+    return { data: null, loading: false, error: err instanceof Error ? err.message : "Unknown API error" };
+  }
 }
 
 function useDashboardData() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<DashboardState>({
+    summary: emptyState<DashboardSummary>(),
+    health: emptyState<Health>(),
+    trades: emptyState<Collection<Trade>>(),
+    positions: emptyState<Collection<Position>>(),
+  });
+  const [refreshing, setRefreshing] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const [summary, health, trades, positions] = await Promise.all([
-        fetchJson<DashboardSummary>("/api/v1/dashboard/summary"),
-        fetchJson<Health>("/api/v1/health"),
-        fetchJson<Collection<Trade>>("/api/v1/trades"),
-        fetchJson<Collection<Position>>("/api/v1/positions"),
-      ]);
-      setData({ summary, health, trades, positions });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown dashboard error");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    setState((current) => ({
+      summary: { ...current.summary, loading: true, error: null },
+      health: { ...current.health, loading: true, error: null },
+      trades: { ...current.trades, loading: true, error: null },
+      positions: { ...current.positions, loading: true, error: null },
+    }));
+
+    const [summary, health, trades, positions] = await Promise.all([
+      loadEndpoint<DashboardSummary>(endpoints.summary),
+      loadEndpoint<Health>(endpoints.health),
+      loadEndpoint<Collection<Trade>>(endpoints.trades),
+      loadEndpoint<Collection<Position>>(endpoints.positions),
+    ]);
+
+    setState({ summary, health, trades, positions });
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => {
     void load();
     const interval = window.setInterval(() => void load(), 30_000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [load]);
 
-  return { data, loading, error, reload: load };
+  return { state, refreshing, reload: load };
 }
 
 function App() {
-  const { data, loading, error, reload } = useDashboardData();
-  const summary = data?.summary;
+  const { state, refreshing, reload } = useDashboardData();
+  const summary = state.summary.data;
   const balance = summary?.fake_balance;
-  const positions = data?.positions.items ?? summary?.open_positions ?? [];
-  const trades = data?.trades.items ?? summary?.trade_history ?? [];
-  const healthChecks = data?.health.checks ?? {};
+  const positions = state.positions.data?.items ?? summary?.open_positions ?? [];
+  const trades = state.trades.data?.items ?? summary?.trade_history ?? [];
+  const healthChecks = state.health.data?.checks ?? {};
   const liveTradingEnabled = Boolean(summary?.live_trading_enabled);
+  const pageLoading = Object.values(state).every((endpoint) => endpoint.loading && !endpoint.data);
+  const errors = Object.entries(state).filter(([, endpoint]) => endpoint.error);
 
   const cards = useMemo(
     () => [
-      ["Paper Equity", formatCurrency(balance?.equity)],
-      ["Available Balance", formatCurrency(balance?.available_balance)],
-      ["Paper PnL", formatCurrency(summary?.live_pnl)],
-      ["Open Positions", String(positions.length)],
-      ["Risk Exposure", `${formatNumber(summary?.risk_exposure_pct, 2)}%`],
-      ["AI Confidence", summary?.ai_confidence_score == null ? "N/A" : `${formatNumber(summary.ai_confidence_score * 100, 1)}%`],
+      ["Paper Equity", formatCurrency(balance?.equity), state.summary.loading],
+      ["Available Balance", formatCurrency(balance?.available_balance), state.summary.loading],
+      ["Paper PnL", formatCurrency(summary?.live_pnl), state.summary.loading],
+      ["Open Positions", String(positions.length), state.positions.loading],
+      ["Risk Exposure", `${formatNumber(summary?.risk_exposure_pct, 2)}%`, state.summary.loading],
+      ["AI Confidence", summary?.ai_confidence_score == null ? "N/A" : `${formatNumber(summary.ai_confidence_score * 100, 1)}%`, state.summary.loading],
     ],
-    [balance, positions.length, summary],
+    [balance, positions.length, state.positions.loading, state.summary.loading, summary],
   );
 
   return (
@@ -159,48 +216,52 @@ function App() {
             <p className="text-sm uppercase tracking-[0.3em] text-cyan-300">AI Futures Bot</p>
             <h1 className="mt-3 text-4xl font-semibold">Paper trading dashboard</h1>
             <p className="mt-3 max-w-3xl text-slate-400">
-              Authenticated dashboard using backend paper simulation data. Live trading remains disabled and exchange
-              connectivity is expected to stay in sandbox mode.
+              Every dashboard request sends the <code>x-api-key</code> header from <code>TRADING_API_KEY</code>. Live
+              trading remains disabled and exchange connectivity stays sandbox-only.
             </p>
           </div>
           <button
             onClick={() => void reload()}
             className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300 disabled:opacity-60"
-            disabled={loading}
+            disabled={refreshing}
           >
-            {loading ? "Refreshing..." : "Refresh"}
+            {refreshing ? "Retrying..." : "Retry / Refresh"}
           </button>
         </div>
 
         <div className="mb-6 grid gap-3 lg:grid-cols-3">
-          <StatusPill label="API" value={data?.health.status ?? (loading ? "loading" : "unknown")} ok={data?.health.status === "ok"} />
+          <StatusPill label="API" value={state.health.data?.status ?? (state.health.loading ? "loading" : "unknown")} ok={state.health.data?.status === "ok"} />
           <StatusPill label="Mode" value={summary?.mode ?? "paper"} ok={(summary?.mode ?? "paper") === "paper"} />
           <StatusPill label="Live Trading" value={liveTradingEnabled ? "enabled" : "disabled"} ok={!liveTradingEnabled} />
         </div>
 
-        {error && (
-          <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-950/60 p-4 text-rose-100">
-            <p className="font-semibold">Dashboard load error</p>
-            <p className="mt-1 text-sm text-rose-200">{error}</p>
-            {!apiKey && <p className="mt-2 text-sm text-rose-200">Missing API key in frontend runtime config.</p>}
+        {errors.length > 0 && (
+          <div className="mb-6 space-y-2 rounded-2xl border border-rose-500/40 bg-rose-950/60 p-4 text-rose-100">
+            <p className="font-semibold">Some dashboard requests failed after retrying</p>
+            {errors.map(([name, endpoint]) => (
+              <p key={name} className="text-sm text-rose-200">
+                <span className="font-semibold">{endpoints[name as EndpointKey]}</span>: {endpoint.error}
+              </p>
+            ))}
+            {!tradingApiKey && <p className="text-sm text-rose-200">Missing TRADING_API_KEY in frontend runtime config.</p>}
           </div>
         )}
 
-        {loading && !data ? (
+        {pageLoading ? (
           <LoadingGrid />
         ) : (
           <>
             <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-              {cards.map(([label, value]) => (
-                <MetricCard key={label} label={label} value={value} />
+              {cards.map(([label, value, loading]) => (
+                <MetricCard key={label as string} label={label as string} value={value as string} loading={Boolean(loading)} />
               ))}
             </div>
 
             <div className="mt-8 grid gap-4 xl:grid-cols-3">
-              <Panel title="Open paper positions" className="xl:col-span-2">
+              <Panel title="Open paper positions" className="xl:col-span-2" loading={state.positions.loading} error={state.positions.error}>
                 <PositionsTable positions={positions} />
               </Panel>
-              <Panel title="Health checks">
+              <Panel title="Health checks" loading={state.health.loading} error={state.health.error}>
                 <div className="space-y-3">
                   {Object.keys(healthChecks).length === 0 ? (
                     <p className="text-sm text-slate-400">No readiness checks loaded yet.</p>
@@ -221,14 +282,17 @@ function App() {
             </div>
 
             <div className="mt-8 grid gap-4 xl:grid-cols-3">
-              <Panel title="Paper trade history" className="xl:col-span-2">
+              <Panel title="Paper trade history" className="xl:col-span-2" loading={state.trades.loading} error={state.trades.error}>
                 <TradesTable trades={trades} />
               </Panel>
-              <Panel title="Runtime config">
+              <Panel title="Runtime config" loading={state.summary.loading} error={state.summary.error}>
                 <div className="space-y-3 text-sm text-slate-300">
                   <ConfigRow label="API base URL" value={apiBaseUrl} />
-                  <ConfigRow label="API key" value={apiKey ? "configured" : "missing"} danger={!apiKey} />
-                  <ConfigRow label="Data source" value="/api/v1/dashboard/summary, /health, /trades, /positions" />
+                  <ConfigRow label="TRADING_API_KEY" value={tradingApiKey ? "configured" : "missing"} danger={!tradingApiKey} />
+                  <ConfigRow label="Dashboard summary" value={endpoints.summary} />
+                  <ConfigRow label="Health" value={endpoints.health} />
+                  <ConfigRow label="Trades" value={endpoints.trades} />
+                  <ConfigRow label="Positions" value={endpoints.positions} />
                 </div>
               </Panel>
             </div>
@@ -239,19 +303,23 @@ function App() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCard({ label, value, loading }: { label: string; value: string; loading?: boolean }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl">
       <p className="text-sm text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
+      {loading ? <div className="mt-3 h-7 w-24 animate-pulse rounded bg-slate-800" /> : <p className="mt-2 text-2xl font-semibold">{value}</p>}
     </div>
   );
 }
 
-function Panel({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
+function Panel({ title, children, className = "", loading = false, error }: { title: string; children: React.ReactNode; className?: string; loading?: boolean; error?: string | null }) {
   return (
     <section className={`rounded-2xl border border-slate-800 bg-slate-900/70 p-5 ${className}`}>
-      <h2 className="text-xl font-semibold">{title}</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold">{title}</h2>
+        {loading && <span className="text-xs text-cyan-300">Loading...</span>}
+      </div>
+      {error && <p className="mt-3 rounded-lg bg-rose-950/70 p-3 text-sm text-rose-200">{error}</p>}
       <div className="mt-4">{children}</div>
     </section>
   );
