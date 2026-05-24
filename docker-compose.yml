@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,7 +47,7 @@ services:
       TRADING_API_KEY: ${TRADING_API_KEY:?set TRADING_API_KEY in .env}
       FRONTEND_TRADING_API_KEY: ${FRONTEND_TRADING_API_KEY:?set FRONTEND_TRADING_API_KEY in .env}
     ports:
-      - "127.0.0.1:5173:8080"
+      - "5173:8080"
     depends_on:
       - api
     restart: unless-stopped

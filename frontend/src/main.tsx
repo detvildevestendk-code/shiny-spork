@@ -89,20 +89,14 @@ type EndpointKey = keyof DashboardState;
 
 const emptyState = <T,>(): EndpointState<T> => ({ data: null, loading: true, error: null });
 
-const apiBaseUrl = window.__APP_CONFIG__?.API_BASE_URL ?? import.meta.env.VITE_API_BASE_URL ?? "http://81.27.108.159:8000";
-const tradingApiKey =
-  window.__APP_CONFIG__?.TRADING_API_KEY ??
-  window.__APP_CONFIG__?.API_KEY ??
-  import.meta.env.VITE_FRONTEND_TRADING_API_KEY ??
-  import.meta.env.VITE_TRADING_API_KEY ??
-  import.meta.env.VITE_API_KEY ??
-  "testkey123";
+const apiBaseUrl = "http://81.27.108.159:8000";
+const tradingApiKey = "testkey123";
 
 const endpoints: Record<EndpointKey, string> = {
-  summary: "/api/v1/dashboard/summary",
-  health: "/api/v1/health",
-  trades: "/api/v1/trades",
-  positions: "/api/v1/positions",
+  summary: "http://81.27.108.159:8000/api/v1/dashboard/summary",
+  health: "http://81.27.108.159:8000/api/v1/health",
+  trades: "http://81.27.108.159:8000/api/v1/trades",
+  positions: "http://81.27.108.159:8000/api/v1/positions",
 };
 
 const demoBalance: Balance = {
@@ -198,20 +192,20 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function fetchJson<T>(path: string, retries = 2): Promise<T> {
+async function fetchJson<T>(url: string, retries = 2): Promise<T> {
   if (!tradingApiKey) {
-    throw new Error("TRADING_API_KEY is missing from frontend runtime config");
+    throw new Error("Frontend API key is missing")
   }
 
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      const response = await fetch(`${apiBaseUrl}${path}`, {
+      const response = await fetch(url, {
         headers: { "x-api-key": tradingApiKey },
       });
       if (!response.ok) {
         const body = await response.text();
-        throw new Error(`${path} failed with ${response.status}: ${body || response.statusText}`);
+        throw new Error(`${url} failed with ${response.status}: ${body || response.statusText}`);
       }
       return response.json() as Promise<T>;
     } catch (err) {
@@ -221,12 +215,12 @@ async function fetchJson<T>(path: string, retries = 2): Promise<T> {
       }
     }
   }
-  throw lastError ?? new Error(`${path} failed`);
+  throw lastError ?? new Error(`${url} failed`);
 }
 
-async function loadEndpoint<T>(path: string): Promise<EndpointState<T>> {
+async function loadEndpoint<T>(url: string): Promise<EndpointState<T>> {
   try {
-    return { data: await fetchJson<T>(path), loading: false, error: null };
+    return { data: await fetchJson<T>(url), loading: false, error: null };
   } catch (err) {
     return { data: null, loading: false, error: err instanceof Error ? err.message : "Unknown API error" };
   }
@@ -262,6 +256,7 @@ function useDashboardData() {
   }, []);
 
   useEffect(() => {
+  // Dashboard page mount: explicitly call all required backend endpoints.
     void load();
     const interval = window.setInterval(() => void load(), 30_000);
     return () => window.clearInterval(interval);
