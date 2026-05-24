@@ -1,0 +1,92 @@
+[
+  {
+    "name": "Donald Trump",
+    "handle": "realDonaldTrump",
+    "category": "political",
+    "influence_score": 95,
+    "assets_impacted": ["BTC", "ETH", "SOL", "MARKET"],
+    "keywords_to_watch": ["crypto", "bitcoin", "tariff", "fed", "dollar", "china", "war", "rate cuts"],
+    "risk_level": "high"
+  },
+  {
+    "name": "Elon Musk",
+    "handle": "elonmusk",
+    "category": "influencer",
+    "influence_score": 90,
+    "assets_impacted": ["BTC", "DOGE", "MARKET"],
+    "keywords_to_watch": ["bitcoin", "crypto", "doge", "payments", "tesla", "x payments"],
+    "risk_level": "high"
+  },
+  {
+    "name": "Michael Saylor",
+    "handle": "saylor",
+    "category": "institutional",
+    "influence_score": 82,
+    "assets_impacted": ["BTC", "MARKET"],
+    "keywords_to_watch": ["bitcoin", "strategy", "treasury", "buy", "convertible"],
+    "risk_level": "medium"
+  },
+  {
+    "name": "Coinbase",
+    "handle": "coinbase",
+    "category": "exchange",
+    "influence_score": 75,
+    "assets_impacted": ["BTC", "ETH", "SOL", "MARKET"],
+    "keywords_to_watch": ["listing", "outage", "maintenance", "sec", "custody", "institutional"],
+    "risk_level": "medium"
+  },
+  {
+    "name": "Binance",
+    "handle": "binance",
+    "category": "exchange",
+    "influence_score": 80,
+    "assets_impacted": ["BTC", "ETH", "SOL", "MARKET"],
+    "keywords_to_watch": ["listing", "delisting", "maintenance", "futures", "funding", "outage"],
+    "risk_level": "high"
+  },
+  {
+    "name": "Bybit",
+    "handle": "bybit_official",
+    "category": "exchange",
+    "influence_score": 70,
+    "assets_impacted": ["BTC", "ETH", "SOL", "MARKET"],
+    "keywords_to_watch": ["listing", "launchpool", "futures", "maintenance", "outage"],
+    "risk_level": "medium"
+  },
+  {
+    "name": "Bitcoin Magazine",
+    "handle": "BitcoinMagazine",
+    "category": "media",
+    "influence_score": 68,
+    "assets_impacted": ["BTC", "MARKET"],
+    "keywords_to_watch": ["etf", "regulation", "fed", "inflation", "mining"],
+    "risk_level": "medium"
+  },
+  {
+    "name": "Solana",
+    "handle": "solana",
+    "category": "protocol",
+    "influence_score": 72,
+    "assets_impacted": ["SOL", "MARKET"],
+    "keywords_to_watch": ["outage", "upgrade", "validator", "performance", "ecosystem"],
+    "risk_level": "medium"
+  },
+  {
+    "name": "Ethereum",
+    "handle": "ethereum",
+    "category": "protocol",
+    "influence_score": 78,
+    "assets_impacted": ["ETH", "MARKET"],
+    "keywords_to_watch": ["upgrade", "staking", "blob", "layer 2", "etf"],
+    "risk_level": "medium"
+  },
+  {
+    "name": "Whale Alert",
+    "handle": "whale_alert",
+    "category": "whale-flow",
+    "influence_score": 74,
+    "assets_impacted": ["BTC", "ETH", "SOL", "MARKET"],
+    "keywords_to_watch": ["transferred", "unknown wallet", "exchange", "minted", "burned"],
+    "risk_level": "high"
+  }
+]

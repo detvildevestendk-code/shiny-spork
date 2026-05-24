@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_api_key
 from app.api.paper_deps import refresh_paper_store
 from app.db.session import get_session
+from app.intelligence.service import MarketIntelligenceService
 from app.trading.paper import PaperTradingStore
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(require_api_key)])
@@ -15,6 +16,8 @@ async def dashboard_summary(session: AsyncSession = Depends(get_session)) -> dic
     refresh = await refresh_paper_store(store)
     summary = await store.dashboard_summary()
     summary["paper_refresh"] = refresh
+    intelligence = await MarketIntelligenceService().snapshot()
+    summary.update(intelligence.model_dump(mode="json"))
     return summary
 
 
