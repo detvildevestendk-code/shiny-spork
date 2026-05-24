@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.models import Order, Trade
+from app.exchanges.base import ExchangeClient
 from app.notifications.telegram import TelegramNotifier
 from app.trading.enums import TradeStatus
 from app.trading.schemas import MarketSnapshot
@@ -24,6 +25,35 @@ class PaperTradingStore:
         self.settings = get_settings()
         self.paper_equity = Decimal(str(self.settings.paper_trading_equity))
         self.notifier = notifier
+
+    async def refresh_market_prices(self, exchange: ExchangeClient | None = None) -> dict[str, Any]:
+        open_trades = await self._open_paper_trades()
+        if not open_trades:
+            return {"updated": 0, "closed": 0}
+
+        updated = 0
+        closed = 0
+        for trade in open_trades:
+            mark_price = await self._live_mark_price(trade, exchange)
+            if mark_price is None or mark_price <= 0:
+                continue
+            metadata = trade.metadata_json or {}
+            metadata["market"] = {**(metadata.get("market") or {}), "close": float(mark_price)}
+            metadata["last_mark_price"] = float(mark_price)
+            metadata["last_marked_at"] = datetime.now(UTC).isoformat()
+            trade.metadata_json = metadata
+            updated += 1
+
+            exit_price, exit_reason = self._stop_or_take_profit_exit(trade, mark_price)
+            if exit_price is not None:
+                self._close_trade(trade, exit_price, exit_reason)
+                closed += 1
+
+        await self.session.commit()
+        if closed and self.notifier:
+            await self.notifier.send(f"Paper simulation closed {closed} trade(s) via stop-loss/take-profit")
+        return {"updated": updated, "closed": closed}
+
 
     async def record_submission(self, result: dict[str, Any], market: MarketSnapshot) -> dict[str, Any]:
         if result.get("status") != "paper_submitted":
@@ -98,8 +128,6 @@ class PaperTradingStore:
         remaining = Decimal(str(amount)) if amount is not None else None
         closed = 0
         realized = Decimal("0")
-        now = datetime.now(UTC)
-
         for trade in trades:
             if remaining is not None and remaining <= 0:
                 break
@@ -110,11 +138,7 @@ class PaperTradingStore:
             if trade.side == "short":
                 pnl = -pnl
 
-            trade.status = TradeStatus.CLOSED.value
-            trade.exit_price = effective_exit
-            trade.realized_pnl = pnl
-            trade.closed_at = now
-            trade.metadata_json = {**(trade.metadata_json or {}), "paper_close_amount": str(close_amount)}
+            self._close_trade(trade, effective_exit, "manual_paper_close", close_amount=close_amount)
             realized += pnl
             closed += 1
             if remaining is not None:
@@ -225,6 +249,56 @@ class PaperTradingStore:
             ).all()
         )
 
+    async def _live_mark_price(self, trade: Trade, exchange: ExchangeClient | None) -> Decimal | None:
+        if exchange is None:
+            return self._current_mark_price(trade)
+        try:
+            candles = await exchange.fetch_ohlcv(trade.symbol, timeframe="1m", limit=2)
+        except Exception:
+            return self._current_mark_price(trade)
+        if not candles:
+            return self._current_mark_price(trade)
+        return Decimal(str(candles[-1][4]))
+
+    def _stop_or_take_profit_exit(self, trade: Trade, mark_price: Decimal) -> tuple[Decimal | None, str | None]:
+        stop_loss = trade.stop_loss
+        take_profit = trade.take_profit
+        if trade.side == "long":
+            if stop_loss is not None and mark_price <= stop_loss:
+                return stop_loss, "stop_loss"
+            if take_profit is not None and mark_price >= take_profit:
+                return take_profit, "take_profit"
+        if trade.side == "short":
+            if stop_loss is not None and mark_price >= stop_loss:
+                return stop_loss, "stop_loss"
+            if take_profit is not None and mark_price <= take_profit:
+                return take_profit, "take_profit"
+        return None, None
+
+    def _close_trade(
+        self,
+        trade: Trade,
+        exit_price: Decimal,
+        exit_reason: str | None,
+        close_amount: Decimal | None = None,
+    ) -> Decimal:
+        amount = close_amount or trade.amount or Decimal("0")
+        entry = trade.entry_price or exit_price
+        pnl = (exit_price - entry) * amount
+        if trade.side == "short":
+            pnl = -pnl
+        trade.status = TradeStatus.CLOSED.value
+        trade.exit_price = exit_price
+        trade.realized_pnl = pnl
+        trade.closed_at = datetime.now(UTC)
+        trade.metadata_json = {
+            **(trade.metadata_json or {}),
+            "paper_exit_reason": exit_reason,
+            "paper_close_amount": str(amount),
+            "last_mark_price": float(exit_price),
+        }
+        return pnl
+
     def _margin_used(self, trade: Trade) -> Decimal:
         notional = (trade.amount or Decimal("0")) * self._current_mark_price(trade)
         leverage = Decimal(str(trade.leverage or 1))
@@ -232,12 +306,10 @@ class PaperTradingStore:
 
     def _current_mark_price(self, trade: Trade) -> Decimal:
         metadata = trade.metadata_json or {}
+        if metadata.get("last_mark_price") is not None:
+            return Decimal(str(metadata["last_mark_price"]))
         market = metadata.get("market") or {}
-        base = Decimal(str(market.get("close") or trade.entry_price or 0))
-        if base <= 0:
-            return Decimal("0")
-        drift = Decimal("1.004") if trade.side == "long" else Decimal("0.996")
-        return base * drift
+        return Decimal(str(market.get("close") or trade.entry_price or 0))
 
     def _unrealized_pnl(self, trade: Trade) -> Decimal:
         amount = trade.amount or Decimal("0")
@@ -276,8 +348,7 @@ class PaperTradingStore:
             "source": "paper_db",
         }
 
-    @staticmethod
-    def _trade_payload(trade: Trade) -> dict[str, Any]:
+    def _trade_payload(self, trade: Trade) -> dict[str, Any]:
         return {
             "id": trade.id,
             "symbol": trade.symbol,
@@ -288,6 +359,10 @@ class PaperTradingStore:
             "entry_price": float(trade.entry_price or 0),
             "exit_price": float(trade.exit_price or 0) if trade.exit_price is not None else None,
             "realized_pnl": float(trade.realized_pnl or 0) if trade.realized_pnl is not None else None,
+            "mark_price": float((trade.exit_price if trade.status == TradeStatus.CLOSED.value else self._current_mark_price(trade)) or 0),
+            "stop_loss": float(trade.stop_loss) if trade.stop_loss is not None else None,
+            "take_profit": float(trade.take_profit) if trade.take_profit is not None else None,
+            "leverage": trade.leverage,
             "opened_at": trade.opened_at.isoformat() if trade.opened_at else None,
             "closed_at": trade.closed_at.isoformat() if trade.closed_at else None,
             "source": "paper_db",

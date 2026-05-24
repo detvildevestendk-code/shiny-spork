@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_api_key
+from app.api.paper_deps import refresh_paper_store
 from app.db.session import get_session
 from app.trading.paper import PaperTradingStore
 
@@ -10,9 +11,15 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depend
 
 @router.get("/summary")
 async def dashboard_summary(session: AsyncSession = Depends(get_session)) -> dict:
-    return await PaperTradingStore(session).dashboard_summary()
+    store = PaperTradingStore(session)
+    refresh = await refresh_paper_store(store)
+    summary = await store.dashboard_summary()
+    summary["paper_refresh"] = refresh
+    return summary
 
 
 @router.get("/trades")
 async def trade_history(session: AsyncSession = Depends(get_session)) -> dict:
-    return await PaperTradingStore(session).trade_history()
+    store = PaperTradingStore(session)
+    await refresh_paper_store(store)
+    return await store.trade_history()
