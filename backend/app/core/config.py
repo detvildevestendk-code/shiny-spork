@@ -101,7 +101,11 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
+        for origin in ("http://81.27.108.159:5173", "http://81.27.108.159"):
+            if origin not in origins:
+                origins.append(origin)
+        return origins
 
 
 @lru_cache
