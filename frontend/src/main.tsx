@@ -28,6 +28,35 @@ type DashboardSummary = {
 const DASHBOARD_SUMMARY_URL = "http://81.27.108.159:8000/api/v1/dashboard/summary";
 const API_KEY = "testkey123";
 
+const demoSummary: Required<Pick<DashboardSummary, "live_pnl" | "risk_exposure_pct" | "ai_confidence_score" | "exchange_connection_status">> & {
+  open_positions: Position[];
+} = {
+  live_pnl: 127.45,
+  risk_exposure_pct: 4.8,
+  ai_confidence_score: 0.62,
+  exchange_connection_status: "sandbox",
+  open_positions: [
+    {
+      id: "demo-btc-long",
+      symbol: "BTC/USDT",
+      side: "long",
+      amount: 0.025,
+      entry_price: 68000,
+      mark_price: 68240,
+      unrealized_pnl: 42.1,
+    },
+    {
+      id: "demo-eth-short",
+      symbol: "ETH/USDT",
+      side: "short",
+      amount: 0.45,
+      entry_price: 3710,
+      mark_price: 3668,
+      unrealized_pnl: 18.9,
+    },
+  ],
+};
+
 function formatCurrency(value: number | undefined | null) {
   if (value == null || Number.isNaN(value)) return "-";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
@@ -52,7 +81,7 @@ function App() {
       setError(null);
 
       try {
-        const response = await fetch(DASHBOARD_SUMMARY_URL, {
+        const response = await fetch("http://81.27.108.159:8000/api/v1/dashboard/summary", {
           method: "GET",
           headers: {
             "x-api-key": API_KEY,
@@ -81,16 +110,22 @@ function App() {
     return () => controller.abort();
   }, []);
 
-  const openPositions = summary?.open_positions ?? [];
+  const livePnl = summary?.live_pnl ?? demoSummary.live_pnl;
+  const openPositions = summary?.open_positions?.length ? summary.open_positions : demoSummary.open_positions;
+  const riskExposure = summary?.risk_exposure_pct ?? demoSummary.risk_exposure_pct;
+  const aiConfidence = summary?.ai_confidence_score ?? demoSummary.ai_confidence_score;
+  const exchangeStatus = summary?.exchange_connection_status || demoSummary.exchange_connection_status;
+  const usingDemoValues = !summary || summary.live_pnl == null || !summary.open_positions?.length;
+
   const cards = useMemo(
     () => [
-      ["Live PnL", formatCurrency(summary?.live_pnl)],
+      ["Live PnL", formatCurrency(livePnl)],
       ["Open Positions", loading ? "Loading..." : String(openPositions.length)],
-      ["Risk Exposure", formatPercent(summary?.risk_exposure_pct)],
-      ["AI Confidence", formatPercent(summary?.ai_confidence_score, 100)],
-      ["Exchange", summary?.exchange_connection_status ?? (loading ? "Loading..." : "-")],
+      ["Risk Exposure", formatPercent(riskExposure)],
+      ["AI Confidence", formatPercent(aiConfidence, 100)],
+      ["Exchange", loading && !summary ? "Loading..." : exchangeStatus],
     ],
-    [loading, openPositions.length, summary],
+    [aiConfidence, exchangeStatus, livePnl, loading, openPositions.length, riskExposure, summary],
   );
 
   return (
@@ -117,6 +152,16 @@ function App() {
             <p className="font-semibold">Dashboard API error</p>
             <p className="mt-1 text-sm text-rose-200">{error}</p>
             <p className="mt-2 text-sm text-rose-200">Open the browser console for the matching console.error output.</p>
+          </div>
+        )}
+
+        {usingDemoValues && !loading && (
+          <div className="mb-6 rounded-2xl border border-cyan-500/30 bg-cyan-950/40 p-4 text-cyan-100">
+            <p className="font-semibold">Demo paper trading values are displayed</p>
+            <p className="mt-1 text-sm text-cyan-200">
+              The dashboard summary API returned empty values or failed, so realistic demo paper values are shown instead
+              of blank cards.
+            </p>
           </div>
         )}
 
